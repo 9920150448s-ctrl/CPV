@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TOT CPV Code Search (with anywhere_exact_start)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #22d3ee;
+      --accent-weak: rgba(34, 211, 238, 0.2);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --border: #1f2937;
+      --shadow: rgba(0,0,0,0.4);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 20% 0%, #0b1020, var(--bg));
+      color: var(--text);
+    }
+
+    h2 {
+      margin: 0 0 16px 0;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      max-width: 980px;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .mode-select {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: linear-gradient(180deg, #0e1726, #0c1420);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .mode-select select {
+      appearance: none;
+      background: #0b1220;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    .toggle-label {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    #searchBox {
+      width: 100%;
+      max-width: 980px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      outline: none;
+      background: linear-gradient(180deg, #0e1726, #0c1420);
+      color: var(--text);
+      box-shadow: 0 8px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    #searchBox::placeholder { color: #64748b; }
+
+    #resultList {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0 0;
+      max-width: 980px;
+      max-height: 400px;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #0f1928, #0d1624);
+      box-shadow: 0 8px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    #resultList:empty {
+      display: none;
+    }
+
+    #resultList li {
+      padding: 10px 12px;
+      border-bottom: 1px solid #0f2436;
+      cursor: pointer;
+      transition: background 120ms ease;
+    }
+
+    #resultList li:last-child { border-bottom: none; }
+
+    #resultList li:hover { background: rgba(34, 211, 238, 0.06); }
+
+    #resultList li.active { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+    .code {
+      color: var(--accent);
+      font-weight: 700;
+      margin-right: 8px;
+    }
+
+    .highlight { background: var(--accent-weak); color: #e6fbff; border-radius: 4px; padding: 0 2px; }
+
+    .not-found { color: #9ca3af; padding: 10px 12px; }
+
+    #selectedBox {
+      width: 100%;
+      max-width: 980px;
+      min-height: 80px;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      outline: none;
+      background: linear-gradient(180deg, #0e1726, #0c1420);
+      color: var(--text);
+      box-shadow: 0 8px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #0d1624;
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    button:hover { background: #112034; }
+    button:active { transform: translateY(1px); }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h2>TOT CPV Code Search</h2>
+
+  <div class="controls">
+    <div class="row">
+      <label class="mode-select">
+        <span class="toggle-label">Search Mode</span>
+        <select id="searchMode">
+          <option value="prefix">Prefix (start of text)</option>
+          <option value="anywhere_exact_start">Word-start anywhere</option>
+          <option value="anywhere">Anywhere substring</option>
+        </select>
+      </label>
+      <span class="hint">Use commas or spaces to separate multiple terms</span>
+    </div>
+    <input type="text" id="searchBox" placeholder="Enter CPV code, keyword, or terms..." />
+  </div>
+
+  <ul id="resultList"></ul>
+
+  <textarea id="selectedBox" placeholder="Hi Sunil..Selected CPV codes will appear here, separated by commas..."></textarea>
+
+  <div class="button-row">
+    <button id="cutBtn">Cut Selected</button>
+    <button id="copyBtn">Copy Selected</button>
+  </div>
+
+  <script>
+    // Small sample to keep the demo self-contained. Replace with your full cpvData list.
+    const cpvData = [
+      "03000000\tAgricultural, farming, fishing, forestry and related products",
+      "09000000\tPetroleum products, fuel, electricity and other sources of energy",
+      "15000000\tFood, beverages, tobacco and related products",
+      "30000000\tOffice and computing machinery, equipment and supplies except furniture and software packages",
+      "33100000\tMedical equipments",
+      "45000000\tConstruction work",
+      "48000000\tSoftware package and information systems",
+      "72000000\tIT services: consulting, software development, Internet and support",
+      "80500000\tTraining services",
+      "98390000\tOther services"
+    ];
+
+    const searchInputElement = document.getElementById('searchBox');
+    const resultListElement = document.getElementById('resultList');
+    const selectedTextAreaElement = document.getElementById('selectedBox');
+    const searchModeSelectElement = document.getElementById('searchMode');
+
+    let searchMode = 'prefix';
+    let keyboardActiveIndex = -1;
+
+    // Utilities
+    function escapeHtml(unsafe) {
+      return unsafe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeRegExp(text) {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function parseSearchTerms(raw) {
+      if (!raw) return [];
+      // Split by comma or whitespace, trim empties
+      return raw
+        .split(/[\s,]+/)
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+    }
+
+    function buildMatcher(term, mode) {
+      // Returns a function(textLower) => boolean
+      const lower = term.toLowerCase();
+      if (mode === 'prefix') {
+        return (textLower) => textLower.startsWith(lower);
+      }
+      if (mode === 'anywhere') {
+        return (textLower) => textLower.includes(lower);
+      }
+      // anywhere_exact_start: match at word-start anywhere in the text
+      const pattern = new RegExp('\\b' + escapeRegExp(lower), 'i');
+      return (text) => pattern.test(text);
+    }
+
+    function buildHighlightRegex(terms, mode) {
+      if (terms.length === 0) return null;
+      const escaped = terms.map(escapeRegExp);
+      if (mode === 'prefix') {
+        // Highlight only at the very start
+        return new RegExp('^(' + escaped.join('|') + ')', 'i');
+      }
+      if (mode === 'anywhere') {
+        // Highlight any occurrence
+        return new RegExp('(' + escaped.join('|') + ')', 'gi');
+      }
+      // anywhere_exact_start: word boundary
+      return new RegExp('\\b(' + escaped.join('|') + ')', 'gi');
+    }
+
+    function highlightText(text, regex) {
+      if (!regex) return escapeHtml(text);
+
+      // For start-anchored regex, we only replace once; for others, do global
+      const isGlobal = regex.flags.includes('g');
+
+      if (!isGlobal) {
+        const match = text.match(regex);
+        if (!match) return escapeHtml(text);
+        const start = match.index;
+        const end = start + match[0].length;
+        return (
+          escapeHtml(text.slice(0, start)) +
+          '<span class="highlight">' + escapeHtml(text.slice(start, end)) + '</span>' +
+          escapeHtml(text.slice(end))
+        );
+      }
+
+      // Global replace preserving HTML safety
+      return escapeHtml(text).replace(regex, (m) => '<span class="highlight">' + escapeHtml(m) + '</span>');
+    }
+
+    function updateResults() {
+      const rawQuery = searchInputElement.value;
+      const terms = parseSearchTerms(rawQuery);
+
+      keyboardActiveIndex = -1;
+      resultListElement.innerHTML = '';
+
+      if (terms.length === 0) {
+        return;
+      }
+
+      const highlightRegex = buildHighlightRegex(terms, searchMode);
+      const termMatchers = terms.map(t => buildMatcher(t, searchMode));
+
+      const matches = [];
+      for (const row of cpvData) {
+        const [codeRaw, descriptionRaw = ''] = row.split('\t');
+        const combined = (codeRaw + ' ' + descriptionRaw);
+        const combinedLower = combined.toLowerCase();
+
+        let allTermsMatch = true;
+        for (const matcher of termMatchers) {
+          if (!matcher(searchMode === 'anywhere_exact_start' ? combined : combinedLower)) {
+            allTermsMatch = false;
+            break;
+          }
+        }
+        if (!allTermsMatch) continue;
+
+        matches.push({ code: codeRaw, desc: descriptionRaw });
+        if (matches.length >= 200) break; // safety cap
+      }
+
+      if (matches.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'not-found';
+        li.textContent = 'No matches found';
+        resultListElement.appendChild(li);
+        return;
+      }
+
+      for (const { code, desc } of matches) {
+        const li = document.createElement('li');
+        li.setAttribute('data-code', code);
+        li.innerHTML =
+          '<span class="code">' + highlightText(code, highlightRegex) + '</span>' +
+          '<span class="desc">' + highlightText(desc, highlightRegex) + '</span>';
+
+        li.addEventListener('click', () => selectCPV(code));
+        resultListElement.appendChild(li);
+      }
+    }
+
+    function selectCPV(code) {
+      addCPVToBox(code);
+    }
+
+    function addCPVToBox(code) {
+      const current = selectedTextAreaElement.value.trim();
+      const items = current ? current.split(/\s*,\s*/).filter(Boolean) : [];
+      if (!items.includes(code)) items.push(code);
+      selectedTextAreaElement.value = items.join(', ');
+    }
+
+    function copyToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise((resolve, reject) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          resolve();
+        } catch (e) {
+          reject(e);
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      });
+    }
+
+    function copySelected() {
+      const value = selectedTextAreaElement.value.trim();
+      if (!value) return;
+      copyToClipboard(value).catch(() => {});
+    }
+
+    function cutSelected() {
+      const value = selectedTextAreaElement.value.trim();
+      if (!value) return;
+      copyToClipboard(value).then(() => {
+        selectedTextAreaElement.value = '';
+      }).catch(() => {});
+    }
+
+    // Keyboard navigation
+    function addActive(listItems) {
+      removeActive(listItems);
+      if (keyboardActiveIndex < 0) keyboardActiveIndex = 0;
+      if (keyboardActiveIndex >= listItems.length) keyboardActiveIndex = listItems.length - 1;
+      const item = listItems[keyboardActiveIndex];
+      item.classList.add('active');
+      item.scrollIntoView({ block: 'nearest' });
+    }
+
+    function removeActive(listItems) {
+      listItems.forEach(el => el.classList.remove('active'));
+    }
+
+    // Event wiring
+    searchInputElement.addEventListener('input', updateResults);
+
+    searchInputElement.addEventListener('keydown', (e) => {
+      const items = Array.from(resultListElement.querySelectorAll('li'))
+        .filter(li => !li.classList.contains('not-found'));
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        keyboardActiveIndex++;
+        addActive(items);
+        e.preventDefault();
+      } else if (e.key === 'ArrowUp') {
+        keyboardActiveIndex--;
+        if (keyboardActiveIndex < 0) keyboardActiveIndex = 0;
+        addActive(items);
+        e.preventDefault();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (keyboardActiveIndex >= 0 && keyboardActiveIndex < items.length) {
+          const code = items[keyboardActiveIndex].getAttribute('data-code');
+          if (code) selectCPV(code);
+        } else if (items.length > 0) {
+          const code = items[0].getAttribute('data-code');
+          if (code) selectCPV(code);
+        }
+      }
+    });
+
+    searchModeSelectElement.addEventListener('change', () => {
+      searchMode = searchModeSelectElement.value;
+      updateResults();
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', copySelected);
+    document.getElementById('cutBtn').addEventListener('click', cutSelected);
+  </script>
+</body>
+</html>

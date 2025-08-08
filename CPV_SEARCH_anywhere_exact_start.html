@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TOT CPV Code Search — with anywhere_exact_start</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #121a2a;
+      --text: #e8eefc;
+      --muted: #97a3b6;
+      --accent: #4f8cff;
+      --accent-2: #00d1b2;
+      --danger: #ff6b6b;
+      --border: #1f2a44;
+      --highlight: #fff3b0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(180deg, #091024, #0b1220);
+      color: var(--text);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      outline: none;
+      font-size: 15px;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus {
+      border-color: rgba(79, 140, 255, 0.65);
+      box-shadow: 0 0 0 4px rgba(79, 140, 255, 0.15);
+    }
+
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      user-select: none;
+      cursor: pointer;
+      white-space: nowrap;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .switch input { display: none; }
+    .switch .slider {
+      position: relative;
+      width: 42px;
+      height: 24px;
+      border-radius: 999px;
+      background: #1a2744;
+      border: 1px solid var(--border);
+      transition: background 0.2s ease;
+    }
+    .switch .slider::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 3px;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #dce7ff;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    .switch input:checked + .slider {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    }
+    .switch input:checked + .slider::after {
+      transform: translate(18px, -50%);
+      background: white;
+    }
+
+    .results {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: 48vh;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .results li {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      line-height: 1.35;
+      transition: background 0.12s ease;
+    }
+    .results li:last-child { border-bottom: none; }
+    .results li:hover, .results li.active { background: #16203a; }
+
+    .muted { color: var(--muted); }
+    .highlight { background: var(--highlight); color: #0b1220; border-radius: 4px; padding: 0 2px; }
+    .not-found { padding: 14px; color: var(--muted); }
+
+    .selected {
+      width: 100%;
+      min-height: 94px;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      resize: vertical;
+    }
+
+    .button-row {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.05s ease, filter 0.15s ease;
+    }
+    button:active { transform: translateY(1px); }
+    .btn-secondary { background: #2b3a64; }
+    .btn-danger { background: var(--danger); }
+
+    .mode-note {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h2>TOT CPV Code Search</h2>
+
+  <div class="controls">
+    <input id="searchBox" class="search-input" type="text" placeholder="Enter CPV code, keyword, or prefixes separated by commas..." />
+
+    <label class="switch" title="Match from very beginning of the whole text (legacy)">
+      <input type="checkbox" id="prefixModeToggle" />
+      <span class="slider"></span>
+      <span>Prefix Mode</span>
+    </label>
+
+    <label class="switch" title="Anywhere Exact Start (match where any word starts with your term)">
+      <input type="checkbox" id="anywhereStartToggle" />
+      <span class="slider"></span>
+      <span>Anywhere Exact Start</span>
+    </label>
+  </div>
+  <div class="mode-note">When "Anywhere Exact Start" is on, it takes precedence over Prefix Mode. Terms are comma-separated and all must match.</div>
+
+  <ul id="resultList" class="results"></ul>
+
+  <textarea id="selectedBox" class="selected" placeholder="Selected CPV codes will appear here, separated by commas..."></textarea>
+
+  <div class="button-row">
+    <button class="btn-danger" onclick="cutSelected()">Cut Selected</button>
+    <button class="btn-secondary" onclick="copySelected()">Copy Selected</button>
+  </div>
+
+  <script>
+    // NOTE: Replace this sample with your full cpvData list if you have it.
+    const cpvData = [
+      "03000000\tAgricultural, farming, fishing, forestry and related products",
+      "03100000\tAgricultural and horticultural products",
+      "03110000\tCrops, products of market gardening and horticulture",
+      "03111000\tSeeds",
+      "09130000\tPetroleum oils and products",
+      "30200000\tComputer equipment and supplies",
+      "30213100\tPortable computers",
+      "30231300\tDisplay screens",
+      "72000000\tIT services: consulting, software development, Internet and support",
+      "98100000\tMembership organisation services",
+    ];
+
+    const searchBox = document.getElementById('searchBox');
+    const resultList = document.getElementById('resultList');
+    const selectedBox = document.getElementById('selectedBox');
+    const prefixModeToggle = document.getElementById('prefixModeToggle');
+    const anywhereStartToggle = document.getElementById('anywhereStartToggle');
+
+    let currentFocusIndex = -1;
+
+    // Utilities
+    function escapeHtml(text) {
+      return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function tokenizeForWordStart(s) {
+      // Split into tokens on non-alphanumeric (keeps numbers/letters together)
+      return s.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    }
+
+    function normalize(s) { return s.toLowerCase(); }
+
+    function parseTerms(raw) {
+      return raw
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean)
+        .map(normalize);
+    }
+
+    // Highlight matched parts according to mode
+    function highlightText(line, terms, mode) {
+      if (terms.length === 0) return escapeHtml(line);
+
+      const safe = escapeHtml(line);
+      const lc = normalize(line);
+
+      // Build ranges to wrap with <span class="highlight">
+      const ranges = [];
+
+      function pushRange(start, end) {
+        if (start < 0 || end <= start) return;
+        ranges.push([start, end]);
+      }
+
+      if (mode === 'anywhereStart') {
+        // For each token, if token starts with term, highlight that segment
+        // We need token positions in the original string. We'll scan characters to map tokens
+        const tokenRegex = /[\p{L}\p{N}]+/gu;
+        let match;
+        while ((match = tokenRegex.exec(lc)) !== null) {
+          const tokenStart = match.index;
+          const tokenText = match[0];
+          for (const term of terms) {
+            if (tokenText.startsWith(term)) {
+              pushRange(tokenStart, tokenStart + term.length);
+            }
+          }
+        }
+      } else if (mode === 'prefix') {
+        // Only match at very beginning of line
+        for (const term of terms) {
+          if (lc.startsWith(term)) {
+            pushRange(0, term.length);
+          }
+        }
+      } else {
+        // contains-anywhere: mark all occurrences for each term
+        for (const term of terms) {
+          let idx = 0;
+          while (true) {
+            idx = lc.indexOf(term, idx);
+            if (idx === -1) break;
+            pushRange(idx, idx + term.length);
+            idx += term.length;
+          }
+        }
+      }
+
+      if (ranges.length === 0) return safe;
+
+      // Merge overlapping ranges
+      ranges.sort((a, b) => a[0] - b[0]);
+      const merged = [];
+      for (const r of ranges) {
+        if (merged.length === 0 || r[0] > merged[merged.length - 1][1]) {
+          merged.push(r.slice());
+        } else {
+          merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], r[1]);
+        }
+      }
+
+      // Rebuild string with highlights
+      let out = '';
+      let cursor = 0;
+      for (const [s, e] of merged) {
+        out += safe.slice(cursor, s);
+        out += '<span class="highlight">' + safe.slice(s, e) + '</span>';
+        cursor = e;
+      }
+      out += safe.slice(cursor);
+      return out;
+    }
+
+    function lineMatches(line, terms, mode) {
+      if (terms.length === 0) return false;
+      const lc = normalize(line);
+
+      if (mode === 'anywhereStart') {
+        // Every term must match start of at least one token in code or title
+        return terms.every(term => {
+          // Quick reject: if not found at all, still might be word-start elsewhere
+          // Check code and title tokens
+          const tokens = tokenizeForWordStart(lc);
+          return tokens.some(tok => tok.startsWith(term));
+        });
+      }
+
+      if (mode === 'prefix') {
+        // Every term must match at the very start of the line (joined code+label)
+        return terms.every(term => lc.startsWith(term));
+      }
+
+      // contains-anywhere: every term must be contained somewhere
+      return terms.every(term => lc.includes(term));
+    }
+
+    function updateResults() {
+      const raw = searchBox.value || '';
+      const terms = parseTerms(raw);
+      const mode = anywhereStartToggle.checked ? 'anywhereStart' : (prefixModeToggle.checked ? 'prefix' : 'contains');
+
+      resultList.innerHTML = '';
+      currentFocusIndex = -1;
+
+      if (terms.length === 0) {
+        resultList.innerHTML = '<li class="not-found">Type to search. Use commas to enter multiple terms.</li>';
+        return;
+      }
+
+      const matched = [];
+      for (const line of cpvData) {
+        if (lineMatches(line, terms, mode)) matched.push(line);
+      }
+
+      if (matched.length === 0) {
+        resultList.innerHTML = '<li class="not-found">No results found</li>';
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      matched.slice(0, 500).forEach(line => {
+        const li = document.createElement('li');
+        li.innerHTML = highlightText(line, terms, mode);
+        li.addEventListener('click', () => selectCPV(line));
+        frag.appendChild(li);
+      });
+      resultList.appendChild(frag);
+    }
+
+    function selectCPV(line) {
+      const [code] = line.split(/\s+/);
+      addCPVToBox(code);
+    }
+
+    function addCPVToBox(code) {
+      const existing = selectedBox.value.trim();
+      if (!existing) {
+        selectedBox.value = code;
+        return;
+      }
+      const parts = existing.split(',').map(s => s.trim()).filter(Boolean);
+      if (!parts.includes(code)) parts.push(code);
+      selectedBox.value = parts.join(', ');
+    }
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    }
+
+    function copySelected() {
+      const text = selectedBox.value.trim();
+      if (!text) return;
+      copyToClipboard(text);
+    }
+
+    function cutSelected() {
+      const text = selectedBox.value.trim();
+      if (!text) return;
+      copyToClipboard(text);
+      selectedBox.value = '';
+    }
+
+    // Keyboard navigation for results
+    searchBox.addEventListener('keydown', (e) => {
+      const items = Array.from(resultList.querySelectorAll('li'));
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentFocusIndex = (currentFocusIndex + 1) % items.length;
+        updateActive(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentFocusIndex = (currentFocusIndex - 1 + items.length) % items.length;
+        updateActive(items);
+      } else if (e.key === 'Enter') {
+        if (currentFocusIndex >= 0 && currentFocusIndex < items.length) {
+          e.preventDefault();
+          items[currentFocusIndex].click();
+        }
+      }
+    });
+
+    function updateActive(items) {
+      items.forEach((el, idx) => el.classList.toggle('active', idx === currentFocusIndex));
+      const active = items[currentFocusIndex];
+      if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    // Ensure only one special mode at a time — Anywhere Start takes precedence
+    anywhereStartToggle.addEventListener('change', () => {
+      if (anywhereStartToggle.checked) {
+        prefixModeToggle.checked = false;
+      }
+      updateResults();
+    });
+
+    prefixModeToggle.addEventListener('change', () => {
+      if (prefixModeToggle.checked) {
+        // do not auto-uncheck anywhere; anywhere has priority via logic
+      }
+      updateResults();
+    });
+
+    searchBox.addEventListener('input', updateResults);
+
+    // Initial render hint
+    updateResults();
+  </script>
+</body>
+</html>

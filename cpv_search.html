@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TOT CPV Code Search</title>
+  <style>
+    :root {
+      --bg: #0f1222;
+      --panel: #171a2b;
+      --text: #e6e9f0;
+      --muted: #a7adbc;
+      --accent: #5cc8ff;
+      --accent-2: #9bffa6;
+      --danger: #ff6b6b;
+      --border: #2a2e42;
+      --highlight: #fff3a3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0; padding: 24px;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+        Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 10% -10%, #1c1f33, transparent),
+                  radial-gradient(800px 500px at 90% -20%, #1a2633, transparent),
+                  var(--bg);
+      color: var(--text);
+    }
+
+    h2 { margin: 0 0 16px; font-weight: 700; letter-spacing: 0.2px; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px;
+    }
+
+    .mode-row {
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+      color: var(--muted);
+    }
+
+    .toggle-switch { position: relative; display: inline-flex; align-items: center; gap: 8px; }
+    .toggle-switch input { display: none; }
+    .slider {
+      width: 44px; height: 24px; background: #394054; border-radius: 999px;
+      position: relative; cursor: pointer; transition: background 0.2s ease;
+      border: 1px solid var(--border);
+    }
+    .slider:before {
+      content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; top: 50%; left: 3px; transform: translateY(-50%);
+      transition: left 0.2s ease, background 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .toggle-switch input:checked + .slider { background: #2e9eff; }
+    .toggle-switch input:checked + .slider:before { left: 23px; background: #e6f4ff; }
+    .toggle-label { font-size: 14px; }
+
+    input[type="text"] {
+      width: 100%; padding: 12px 14px; font-size: 16px; color: var(--text);
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      outline: none; transition: border 0.15s ease, box-shadow 0.15s ease;
+    }
+    input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(92,200,255,0.15); }
+
+    ul#resultList {
+      list-style: none; margin: 12px 0 0; padding: 0; max-height: 48vh; overflow: auto;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    }
+    li.result-item {
+      padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer;
+      display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: start;
+    }
+    li.result-item:hover { background: #1f2338; }
+    li.result-item.active { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .code { color: var(--accent-2); font-weight: 600; white-space: nowrap; }
+    .desc { color: var(--text); }
+
+    .not-found { padding: 12px; color: var(--muted); }
+
+    #selectedBox {
+      margin-top: 12px; width: 100%; min-height: 96px; color: var(--text);
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 12px; font-size: 14px; resize: vertical;
+    }
+
+    .button-row { display: flex; gap: 8px; margin-top: 8px; }
+    .button-row button {
+      background: #2b6cb0; color: white; border: none; padding: 10px 14px;
+      border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;
+    }
+    .button-row button:hover { background: #2c5282; }
+
+    .highlight { background: var(--highlight); color: #222; }
+  </style>
+</head>
+<body>
+  <h2>TOT CPV Code Search</h2>
+
+  <div class="controls">
+    <div class="mode-row">
+      <label class="toggle-switch" title="Search only at the very start of the code or description">
+        <input type="checkbox" id="prefixModeToggle" />
+        <span class="slider"></span>
+        <span class="toggle-label">Prefix search mode</span>
+      </label>
+
+      <label class="toggle-switch" title="Search terms must start at a word boundary anywhere">
+        <input type="checkbox" id="anywhereWordStartToggle" />
+        <span class="slider"></span>
+        <span class="toggle-label">Anywhere (word-start) mode</span>
+      </label>
+    </div>
+
+    <input
+      type="text"
+      id="searchBox"
+      placeholder="Enter CPV code, keyword, or prefixes separated by commas..."
+      autocomplete="off"
+    />
+  </div>
+
+  <ul id="resultList"></ul>
+
+  <textarea id="selectedBox" placeholder="Hi Sunil..Selected CPV codes will appear here, separated by commas..."></textarea>
+
+  <div class="button-row">
+    <button id="cutBtn">Cut Selected</button>
+    <button id="copyBtn">Copy Selected</button>
+  </div>
+
+  <script>
+    // NOTE: Replace this sample with your full cpvData array.
+    const cpvData = [
+      "03000000\tAgricultural, farming, fishing, forestry and related products",
+      "03142500\tFresh vegetables",
+      "45233120\tRoad construction works",
+      "79823000\tPrinting and delivery services",
+      "85111000\tHospital services",
+      "98514000\tDomestic services"
+    ];
+
+    const searchBox = document.getElementById('searchBox');
+    const resultList = document.getElementById('resultList');
+    const selectedBox = document.getElementById('selectedBox');
+    const copyBtn = document.getElementById('copyBtn');
+    const cutBtn = document.getElementById('cutBtn');
+
+    let currentFocus = -1;
+
+    const prefixModeToggle = document.getElementById('prefixModeToggle');
+    const anywhereWordStartToggle = document.getElementById('anywhereWordStartToggle');
+
+    // Ensure the two modes are mutually exclusive
+    prefixModeToggle.addEventListener('change', () => {
+      if (prefixModeToggle.checked) {
+        anywhereWordStartToggle.checked = false;
+      }
+      updateResults();
+    });
+    anywhereWordStartToggle.addEventListener('change', () => {
+      if (anywhereWordStartToggle.checked) {
+        prefixModeToggle.checked = false;
+      }
+      updateResults();
+    });
+
+    function getSearchMode() {
+      if (prefixModeToggle.checked) return 'prefix';
+      if (anywhereWordStartToggle.checked) return 'anywhere_exact_start';
+      return 'anywhere';
+    }
+
+    function splitCodeAndDescription(row) {
+      const [code, ...rest] = row.split('\t');
+      return { code: code || '', description: rest.join('\t') || '' };
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function escapeRegExp(text) {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function buildWordStartRegex(term) {
+      const safe = escapeRegExp(term);
+      return new RegExp('\\b' + safe, 'i');
+    }
+
+    function buildContainsRegex(term) {
+      const safe = escapeRegExp(term);
+      return new RegExp(safe, 'i');
+    }
+
+    function highlightText(text, searchTerms, mode) {
+      if (!searchTerms.length) return escapeHtml(text);
+
+      let result = escapeHtml(text);
+
+      // Build a combined regex depending on the mode
+      const parts = searchTerms
+        .filter(Boolean)
+        .map(t => escapeRegExp(t));
+      if (!parts.length) return result;
+
+      let pattern;
+      if (mode === 'prefix') {
+        // Start of entire string
+        pattern = new RegExp('^(' + parts.join('|') + ')', 'i');
+        result = result.replace(pattern, m => `<span class="highlight">${m}</span>`);
+        return result;
+      }
+
+      if (mode === 'anywhere_exact_start') {
+        // Word boundary anywhere
+        pattern = new RegExp('\\b(' + parts.join('|') + ')', 'ig');
+      } else {
+        // Anywhere contains
+        pattern = new RegExp('(' + parts.join('|') + ')', 'ig');
+      }
+
+      return result.replace(pattern, m => `<span class="highlight">${m}</span>`);
+    }
+
+    function tokenize(input) {
+      return input
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    function matchesRow(row, terms, mode) {
+      if (!terms.length) return false;
+      const { code, description } = splitCodeAndDescription(row);
+      const hayCode = code.toLowerCase();
+      const hayDesc = description.toLowerCase();
+
+      if (mode === 'prefix') {
+        return terms.every(term => {
+          const needle = term.toLowerCase();
+          return hayCode.startsWith(needle) || hayDesc.startsWith(needle);
+        });
+      }
+
+      if (mode === 'anywhere_exact_start') {
+        return terms.every(term => {
+          const re = buildWordStartRegex(term);
+          return re.test(hayCode) || re.test(hayDesc);
+        });
+      }
+
+      // anywhere contains
+      return terms.every(term => {
+        const re = buildContainsRegex(term);
+        return re.test(hayCode) || re.test(hayDesc);
+      });
+    }
+
+    function renderResults(items, terms, mode) {
+      resultList.innerHTML = '';
+      currentFocus = -1;
+
+      if (!items.length) {
+        const li = document.createElement('li');
+        li.className = 'not-found';
+        li.textContent = 'No matches found.';
+        resultList.appendChild(li);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      for (const row of items) {
+        const { code, description } = splitCodeAndDescription(row);
+        const li = document.createElement('li');
+        li.className = 'result-item';
+        li.innerHTML = `
+          <span class="code">${highlightText(code, terms, mode)}</span>
+          <span class="desc">${highlightText(description, terms, mode)}</span>
+        `;
+        li.addEventListener('click', () => selectCPV(code));
+        fragment.appendChild(li);
+      }
+      resultList.appendChild(fragment);
+    }
+
+    function updateResults() {
+      const raw = searchBox.value.trim();
+      const terms = tokenize(raw);
+      const mode = getSearchMode();
+
+      if (!terms.length) {
+        resultList.innerHTML = '';
+        currentFocus = -1;
+        return;
+      }
+
+      // Filter and limit results for performance
+      const matches = [];
+      for (const row of cpvData) {
+        if (matchesRow(row, terms, mode)) {
+          matches.push(row);
+          if (matches.length >= 500) break; // soft cap
+        }
+      }
+
+      renderResults(matches, terms, mode);
+    }
+
+    function addCPVToBox(code) {
+      const existing = selectedBox.value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (!existing.includes(code)) {
+        existing.push(code);
+      }
+      selectedBox.value = existing.join(', ');
+    }
+
+    function selectCPV(code) { addCPVToBox(code); }
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (e) {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+        return true;
+      }
+    }
+
+    function getSelectedCodes() {
+      return selectedBox.value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    function setSelectedCodes(codes) {
+      selectedBox.value = codes.join(', ');
+    }
+
+    async function copySelected() {
+      const codes = getSelectedCodes();
+      if (!codes.length) return;
+      await copyToClipboard(codes.join(', '));
+    }
+
+    async function cutSelected() {
+      const codes = getSelectedCodes();
+      if (!codes.length) return;
+      await copyToClipboard(codes.join(', '));
+      setSelectedCodes([]);
+    }
+
+    copyBtn.addEventListener('click', copySelected);
+    cutBtn.addEventListener('click', cutSelected);
+
+    searchBox.addEventListener('input', updateResults);
+
+    // Keyboard navigation
+    searchBox.addEventListener('keydown', (e) => {
+      const items = Array.from(resultList.querySelectorAll('li.result-item'));
+      if (!items.length) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentFocus = (currentFocus + 1) % items.length;
+        setActive(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentFocus = (currentFocus - 1 + items.length) % items.length;
+        setActive(items);
+      } else if (e.key === 'Enter') {
+        if (currentFocus >= 0 && currentFocus < items.length) {
+          e.preventDefault();
+          const codeEl = items[currentFocus].querySelector('.code');
+          const code = codeEl.textContent.trim();
+          selectCPV(code);
+        }
+      }
+    });
+
+    function setActive(items) {
+      items.forEach(li => li.classList.remove('active'));
+      if (currentFocus >= 0 && currentFocus < items.length) {
+        const li = items[currentFocus];
+        li.classList.add('active');
+        li.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  </script>
+</body>
+</html>
