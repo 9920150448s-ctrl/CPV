@@ -1,81 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
+  <title>TOT CPV Code Search</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TOT CPV Code Search — with anywhere_exact_start</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 16px; }
-    h2 { margin-top: 0; }
+    :root {
+      --bg: #0b1020;
+      --panel: #121a35;
+      --muted: #94a3b8;
+      --text: #e2e8f0;
+      --accent: #60a5fa;
+      --accent-2: #34d399;
+      --danger: #ef4444;
+      --border: #1f2a4a;
+      --highlight: #fde68a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(96,165,250,0.12), transparent 40%),
+                  radial-gradient(1000px 600px at 110% -10%, rgba(34,197,94,0.12), transparent 40%),
+                  var(--bg);
+      color: var(--text);
+    }
+    h2 { margin: 0 0 16px; font-weight: 700; letter-spacing: 0.2px; }
 
-    .controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    }
 
-    .toggle { display: inline-flex; align-items: center; gap: 8px; user-select: none; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 
-    #searchBox { width: 100%; max-width: 920px; padding: 10px 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+    .muted { color: var(--muted); font-size: 13px; }
 
-    ul { list-style: none; padding-left: 0; margin-top: 10px; max-width: 920px; }
-    li { padding: 8px 10px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 8px; cursor: pointer; }
-    li:hover { background: #fafafa; }
+    .search {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
 
-    .highlight { background: #fff2a8; padding: 0 2px; border-radius: 3px; }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0e1530;
+      color: var(--text);
+      outline: none;
+      font-size: 14px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);
+    }
+    input[type="text"]::placeholder { color: #7b8794; }
 
-    #selectedBox { width: 100%; max-width: 920px; min-height: 100px; margin-top: 12px; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; }
+    .toggles { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 
-    .button-row { display: flex; gap: 10px; margin-top: 10px; }
-    .button-row button { padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; background: #f6f6f6; cursor: pointer; }
-    .button-row button:hover { background: #eee; }
+    .toggle {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #0e1530; border: 1px solid var(--border);
+      padding: 8px 10px; border-radius: 999px; font-size: 13px; color: var(--muted);
+    }
+    .toggle input { accent-color: var(--accent); }
 
-    .meta { color: #666; font-size: 12px; margin-top: 6px; }
+    ul#resultList {
+      list-style: none; margin: 0; padding: 0; max-height: 46vh; overflow: auto;
+      border-radius: 12px; border: 1px solid var(--border);
+      background: #0c1228;
+    }
+    ul#resultList li {
+      padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+      cursor: pointer; display: flex; gap: 10px; align-items: baseline;
+    }
+    ul#resultList li:last-child { border-bottom: none; }
+    ul#resultList li:hover { background: rgba(96,165,250,0.08); }
+    ul#resultList li.active { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+    .code { color: var(--accent-2); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 7.5ch; }
+    .title { color: var(--text); }
+
+    .highlight { background: var(--highlight); color: #111827; padding: 0 2px; border-radius: 3px; }
+    .not-found { color: var(--muted); padding: 14px; text-align: center; }
+
+    textarea#selectedBox {
+      width: 100%; min-height: 100px; padding: 12px 14px; border-radius: 12px;
+      border: 1px solid var(--border); background: #0e1530; color: var(--text);
+      resize: vertical; font-size: 14px;
+    }
+
+    .button-row { display: flex; gap: 10px; justify-content: flex-end; }
+    button {
+      background: linear-gradient(180deg, #1f3a8a, #1e40af);
+      color: white; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(30,64,175,0.45);
+    }
+    button.secondary { background: linear-gradient(180deg, #065f46, #047857); box-shadow: 0 4px 14px rgba(4,120,87,0.45); }
+    button:active { transform: translateY(1px); }
   </style>
 </head>
 <body>
   <h2>TOT CPV Code Search</h2>
 
-  <div class="controls">
-    <label class="toggle">
-      <input type="checkbox" id="prefixModeToggle" />
-      <span>Prefix Search Mode</span>
-    </label>
-    <label class="toggle">
-      <input type="checkbox" id="anywhereExactStartToggle" />
-      <span>Anywhere Exact Start</span>
-    </label>
+  <div class="panel search">
+    <input type="text" id="searchBox" placeholder="Enter CPV code, keyword, or multiple terms separated by commas or spaces..." autocomplete="off" />
+    <div class="toggles">
+      <label class="toggle"><input type="checkbox" id="prefixModeToggle" /> Prefix Search (start of string)</label>
+      <label class="toggle"><input type="checkbox" id="anywhereExactStartToggle" /> Anywhere Exact Start (start of any word)</label>
+      <span class="muted">Tip: If both are off, default is 'contains anywhere'.</span>
+    </div>
   </div>
-
-  <input
-    type="text"
-    id="searchBox"
-    placeholder="Enter CPV code, keyword, or prefixes separated by commas..."
-    autocomplete="off"
-  />
 
   <ul id="resultList"></ul>
 
-  <textarea
-    id="selectedBox"
-    placeholder="Selected CPV codes will appear here, separated by commas..."
-  ></textarea>
-  <div class="button-row">
-    <button type="button" id="cutButton">Cut Selected</button>
-    <button type="button" id="copyButton">Copy Selected</button>
+  <div class="panel" style="margin-top:12px;">
+    <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+      <span class="muted">Selected CPV codes (comma-separated)</span>
+      <div class="button-row">
+        <button class="secondary" onclick="cutSelected()">Cut Selected</button>
+        <button onclick="copySelected()">Copy Selected</button>
+      </div>
+    </div>
+    <textarea id="selectedBox" placeholder="Hi Sunil... Selected CPV codes will appear here, separated by commas..."></textarea>
   </div>
 
-  <div class="meta">Tip: Toggle "Anywhere Exact Start" to match your terms at the beginning of any word in code or description. Toggle "Prefix Search Mode" to anchor at the very start of the entry.</div>
-
   <script>
-    // SAMPLE DATA — replace with your full cpvData array
+    // Minimal sample data so the page works immediately. Replace with the full cpvData list as needed.
     const cpvData = [
       "03000000\tAgricultural, farming, fishing, forestry and related products",
       "03100000\tAgricultural and horticultural products",
-      "03110000\tCrops, products of market gardening and horticulture",
-      "98513100\tAgency staff services for households",
-      "98513200\tClerical staff services for households",
-      "98513300\tTemporary staff for households",
-      "98513310\tHome-help services",
-      "98514000\tDomestic services",
-      "98900000\tServices provided by extra-territorial organisations and bodies",
-      "98910000\tServices specific to international organisations and bodies"
+      "03110000\tCrops",
+      "03111000\tSeeds",
+      "03120000\tHorticultural products",
+      "45000000\tConstruction work",
+      "45200000\tWorks for complete or part construction and civil engineering work",
+      "72000000\tIT services: consulting, software development, Internet and support",
+      "72200000\tSoftware programming and consultancy services",
+      "98514000\tDomestic services"
     ];
 
     const searchBox = document.getElementById('searchBox');
@@ -85,156 +152,144 @@
     const prefixModeToggle = document.getElementById('prefixModeToggle');
     const anywhereExactStartToggle = document.getElementById('anywhereExactStartToggle');
 
+    let currentFocusIndex = -1;
+
     function escapeHtml(text) {
       return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
     }
 
-    function escapeRegExp(text) {
-      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    function tokenize(text) {
+      return text.toLowerCase().split(/[^a-z0-9]+/i).filter(Boolean);
     }
 
-    function parseEntry(entry) {
-      const [code, description = ''] = entry.split('\t');
-      return { code, description };
-    }
-
-    function normalize(text) {
-      return text.toLowerCase();
-    }
-
-    function splitTerms(rawQuery) {
-      return rawQuery
-        .split(',')
-        .map(part => part.trim())
+    function parseQuery(raw) {
+      return raw
+        .toLowerCase()
+        .split(/[\s,]+/)
+        .map(s => s.trim())
         .filter(Boolean);
     }
 
-    function recordMatches(entryText, terms, { modePrefix, modeAnywhereStart }) {
-      const lowerText = normalize(entryText);
-
-      if (modePrefix) {
-        // All terms must match from the very start of the entry text (joined with space)
-        // Implemented as: the first term must match at start; others must exist anywhere
-        if (terms.length === 0) return false;
-        const [first, ...rest] = terms;
-        if (!lowerText.startsWith(normalize(first))) return false;
-        return rest.every(t => lowerText.includes(normalize(t)));
+    function matchesTerm(text, term) {
+      const lower = text.toLowerCase();
+      if (prefixModeToggle.checked) {
+        return lower.startsWith(term);
       }
-
-      if (modeAnywhereStart) {
-        // Each term must match the start of some word (word-boundary) anywhere in the text
-        return terms.every(term => {
-          const pattern = new RegExp('\\b' + escapeRegExp(term), 'i');
-          return pattern.test(entryText);
-        });
+      if (anywhereExactStartToggle.checked) {
+        const tokens = tokenize(text);
+        return tokens.some(t => t.startsWith(term));
       }
-
-      // Default: contains-anywhere for all terms
-      return terms.every(term => lowerText.includes(normalize(term)));
+      return lower.includes(term);
     }
 
-    function highlightText(entryText, terms, { modePrefix, modeAnywhereStart }) {
-      if (terms.length === 0) return escapeHtml(entryText);
-
-      let resultHtml = escapeHtml(entryText);
-
-      if (modePrefix) {
-        const first = terms[0];
-        if (!first) return resultHtml;
-        const pattern = new RegExp('^(' + escapeRegExp(first) + ')', 'i');
-        resultHtml = resultHtml.replace(pattern, '<span class="highlight">$1</span>');
-        return resultHtml;
+    function matchesAllTerms(text, terms) {
+      for (const term of terms) {
+        if (!matchesTerm(text, term)) return false;
       }
-
-      if (modeAnywhereStart) {
-        // Highlight each term at word starts (independently)
-        terms.forEach(term => {
-          if (!term) return;
-          const pattern = new RegExp('\\b(' + escapeRegExp(term) + ')', 'ig');
-          resultHtml = resultHtml.replace(pattern, '<span class="highlight">$1</span>');
-        });
-        return resultHtml;
-      }
-
-      // Default: highlight occurrences anywhere
-      terms.forEach(term => {
-        if (!term) return;
-        const pattern = new RegExp('(' + escapeRegExp(term) + ')', 'ig');
-        resultHtml = resultHtml.replace(pattern, '<span class="highlight">$1</span>');
-      });
-      return resultHtml;
+      return true;
     }
 
-    function buildListItem(entry, terms, modes) {
-      const { code, description } = parseEntry(entry);
-      const content = `${code} — ${description}`;
-      const highlighted = highlightText(content, terms, modes);
+    function splitCodeAndTitle(row) {
+      const [code, title] = row.split(/\t|\s{2,}/);
+      return { code: code ? code.trim() : '', title: title ? title.trim() : '' };
+    }
 
-      const li = document.createElement('li');
-      li.innerHTML = highlighted;
-      li.addEventListener('click', () => selectCPV(code));
-      return li;
+    function highlight(text, terms) {
+      // Build regex for word-boundary starts if anywhereExactStart; otherwise simple includes highlight
+      if (terms.length === 0) return escapeHtml(text);
+      let html = escapeHtml(text);
+
+      // Sort terms by length desc to avoid nested overlaps
+      const ordered = [...terms].sort((a,b) => b.length - a.length);
+
+      if (prefixModeToggle.checked) {
+        const term = ordered[0];
+        const re = new RegExp('^(' + escapeRegExp(term) + ')', 'i');
+        html = html.replace(re, '<span class="highlight">$1</span>');
+        return html;
+      }
+
+      if (anywhereExactStartToggle.checked) {
+        // Highlight token starts: \bterm
+        for (const term of ordered) {
+          const re = new RegExp('\\b(' + escapeRegExp(term) + ')', 'gi');
+          html = html.replace(re, '<span class="highlight">$1</span>');
+        }
+        return html;
+      }
+
+      // Default contains
+      for (const term of ordered) {
+        const re = new RegExp('(' + escapeRegExp(term) + ')', 'gi');
+        html = html.replace(re, '<span class="highlight">$1</span>');
+      }
+      return html;
+    }
+
+    function escapeRegExp(s) {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     function updateResults() {
-      const rawQuery = searchBox.value.trim();
-      const terms = splitTerms(rawQuery);
-
-      const modes = {
-        modePrefix: prefixModeToggle.checked,
-        modeAnywhereStart: anywhereExactStartToggle.checked,
-      };
-
-      // If both toggles are ON, prioritize Anywhere Exact Start for clarity
-      // You can change this behavior if you prefer different precedence
-      if (modes.modePrefix && modes.modeAnywhereStart) {
-        modes.modePrefix = false;
-      }
-
-      // Filter and render
-      const entries = cpvData.filter(entry => recordMatches(entry, terms, modes));
-
+      const terms = parseQuery(searchBox.value);
       resultList.innerHTML = '';
-      if (entries.length === 0) {
-        const li = document.createElement('li');
-        li.textContent = 'No results found';
-        resultList.appendChild(li);
+      currentFocusIndex = -1;
+
+      if (terms.length === 0) {
+        renderList(cpvData.slice(0, 100));
         return;
       }
 
-      const fragment = document.createDocumentFragment();
-      entries.slice(0, 200).forEach(entry => fragment.appendChild(buildListItem(entry, terms, modes)));
-      resultList.appendChild(fragment);
+      const filtered = [];
+      for (const row of cpvData) {
+        const { code, title } = splitCodeAndTitle(row);
+        const haystack = `${code} ${title}`;
+        if (matchesAllTerms(haystack, terms)) filtered.push(row);
+        if (filtered.length >= 200) break; // performance cap
+      }
+
+      if (filtered.length === 0) {
+        resultList.innerHTML = `<li class="not-found">No matches found</li>`;
+        return;
+      }
+
+      renderList(filtered);
     }
 
-    function addCPVToBox(code) {
-      const existing = selectedBox.value
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
-      if (!existing.includes(code)) existing.push(code);
-      selectedBox.value = existing.join(', ');
+    function renderList(rows) {
+      const terms = parseQuery(searchBox.value);
+      const frag = document.createDocumentFragment();
+      rows.forEach((row, idx) => {
+        const { code, title } = splitCodeAndTitle(row);
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="code">${highlight(code, terms)}</span><span class="title">${highlight(title, terms)}</span>`;
+        li.addEventListener('click', () => selectCPV(code));
+        frag.appendChild(li);
+      });
+      resultList.innerHTML = '';
+      resultList.appendChild(frag);
     }
 
     function selectCPV(code) {
       addCPVToBox(code);
+      // Copy to clipboard immediately for convenience
+      copyToClipboard(code);
     }
 
-    function copyToClipboard(text) {
-      if (!navigator.clipboard) {
-        const aux = document.createElement('textarea');
-        aux.value = text;
-        document.body.appendChild(aux);
-        aux.select();
-        try { document.execCommand('copy'); } finally { document.body.removeChild(aux); }
+    function addCPVToBox(code) {
+      const current = selectedBox.value.trim();
+      if (!current) {
+        selectedBox.value = code;
         return;
       }
-      navigator.clipboard.writeText(text).catch(() => {});
+      const parts = current.split(',').map(s => s.trim()).filter(Boolean);
+      if (!parts.includes(code)) parts.push(code);
+      selectedBox.value = parts.join(', ');
     }
 
     function copySelected() {
@@ -250,11 +305,59 @@
       selectedBox.value = '';
     }
 
-    // Wire up events
+    function copyToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      document.body.removeChild(ta);
+    }
+
+    // Keyboard navigation (optional)
+    searchBox.addEventListener('keydown', (e) => {
+      const items = Array.from(resultList.querySelectorAll('li'));
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentFocusIndex = (currentFocusIndex + 1) % items.length;
+        setActive(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentFocusIndex = (currentFocusIndex - 1 + items.length) % items.length;
+        setActive(items);
+      } else if (e.key === 'Enter') {
+        if (currentFocusIndex >= 0 && currentFocusIndex < items.length) {
+          e.preventDefault();
+          const codeEl = items[currentFocusIndex].querySelector('.code');
+          const code = codeEl ? codeEl.textContent.trim() : '';
+          if (code) selectCPV(code);
+        }
+      }
+    });
+
+    function setActive(items) {
+      items.forEach(el => el.classList.remove('active'));
+      if (currentFocusIndex >= 0 && currentFocusIndex < items.length) {
+        items[currentFocusIndex].classList.add('active');
+        items[currentFocusIndex].scrollIntoView({ block: 'nearest' });
+      }
+    }
+
     searchBox.addEventListener('input', updateResults);
-    document.getElementById('copyButton').addEventListener('click', copySelected);
-    document.getElementById('cutButton').addEventListener('click', cutSelected);
-    prefixModeToggle.addEventListener('change', updateResults);
+    prefixModeToggle.addEventListener('change', () => {
+      if (prefixModeToggle.checked) {
+        // If prefix mode is on, you can keep anywhereExactStart on or off; no forced exclusivity
+      }
+      updateResults();
+    });
     anywhereExactStartToggle.addEventListener('change', updateResults);
 
     // Initial render
