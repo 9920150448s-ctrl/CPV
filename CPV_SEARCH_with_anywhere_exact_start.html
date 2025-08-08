@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TOT CPV Code Search - with anywhere_exact_start</title>
+  <style>
+    :root {
+      --bg: #0f1218;
+      --panel: #161b22;
+      --muted: #8b949e;
+      --fg: #c9d1d9;
+      --accent: #2f81f7;
+      --accent-2: #ffa657;
+      --border: #30363d;
+      --highlight-bg: #2a2f3a;
+      --success: #2ea043;
+      --danger: #f85149;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(180deg, #0b0e14 0%, #0f1218 100%);
+      color: var(--fg);
+      padding: 24px;
+    }
+
+    h2 {
+      margin: 0 0 16px 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: #e6edf3;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 16px;
+      margin-bottom: 12px;
+    }
+
+    .search-input {
+      flex: 1 1 420px;
+      min-width: 260px;
+      background: var(--panel);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      padding: 12px 14px;
+      font-size: 14px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .search-input::placeholder { color: var(--muted); }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(47,129,247,0.25);
+    }
+
+    .mode-group {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .mode-group label { display: flex; align-items: center; gap: 6px; }
+
+    .lists {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 1080px) {
+      .lists { grid-template-columns: 1fr; }
+    }
+
+    ul#resultList {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-height: 60vh;
+      overflow: auto;
+    }
+
+    li.result-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      line-height: 1.35;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    li.result-item:last-child { border-bottom: none; }
+
+    li.result-item:hover { background: #1e2530; }
+
+    li.result-item.active { background: #212838; border-left: 3px solid var(--accent); }
+
+    .code { color: var(--accent-2); font-weight: 600; white-space: nowrap; }
+    .desc { color: var(--fg); }
+
+    .highlight { background: rgba(47,129,247,0.2); color: #fff; padding: 0 2px; border-radius: 4px; }
+    .not-found { color: var(--muted); padding: 14px; }
+
+    textarea#selectedBox {
+      width: 100%;
+      min-height: 160px;
+      background: var(--panel);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 13px;
+      line-height: 1.4;
+      resize: vertical;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      background: #222939;
+      color: #e6edf3;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .btn:hover { background: #273049; border-color: #3a4250; }
+    .btn.copy { border-color: rgba(46,160,67,0.5); }
+    .btn.cut { border-color: rgba(248,81,73,0.5); }
+
+    .help { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h2>TOT CPV Code Search</h2>
+
+  <div class="toolbar">
+    <input id="searchBox" class="search-input" type="text" placeholder="Enter CPV code, keyword, or prefixes separated by commas..." />
+
+    <div class="mode-group" role="radiogroup" aria-label="Search Mode">
+      <span>Mode:</span>
+      <label><input type="radio" name="mode" value="anywhere" checked /> Anywhere</label>
+      <label><input type="radio" name="mode" value="anywhere_exact_start" /> Anywhere Exact Start</label>
+      <label><input type="radio" name="mode" value="prefix" /> Prefix</label>
+    </div>
+  </div>
+
+  <div class="lists">
+    <ul id="resultList" aria-label="Search Results"></ul>
+
+    <div>
+      <textarea id="selectedBox" placeholder="Selected CPV codes will appear here, separated by commas..."></textarea>
+      <div class="button-row">
+        <button class="btn cut" id="cutBtn">Cut Selected</button>
+        <button class="btn copy" id="copyBtn">Copy Selected</button>
+      </div>
+      <div class="help">Tip: Use Up/Down to navigate results, Enter to select.</div>
+    </div>
+  </div>
+
+  <script>
+    // NOTE: Replace this sample with your full cpvData array
+    const cpvData = [
+      "03000000\tAgricultural, farming, fishing, forestry and related products",
+      "30200000\tComputer equipment and supplies",
+      "30231300\tFlash memory",
+      "30237110\tScanners",
+      "30237200\tComputer mice",
+      "33100000\tMedical equipments",
+      "48000000\tSoftware package and information systems"
+    ];
+
+    const searchInput = document.getElementById('searchBox');
+    const resultList = document.getElementById('resultList');
+    const selectedBox = document.getElementById('selectedBox');
+    const cutBtn = document.getElementById('cutBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const modeRadios = /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('input[name="mode"]'));
+
+    let currentActiveIndex = -1;
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeRegExp(text) {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function normalizeTerms(raw) {
+      return raw
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    function parseRow(row) {
+      const [code, desc] = row.split('\t');
+      return { code: code || '', desc: desc || '' };
+    }
+
+    function createWordStartRegex(term) {
+      return new RegExp('\\b' + escapeRegExp(term), 'i');
+    }
+
+    function createPrefixRegex(term) {
+      return new RegExp('^' + escapeRegExp(term), 'i');
+    }
+
+    function containsMatch(haystack, term) {
+      return haystack.toLowerCase().includes(term.toLowerCase());
+    }
+
+    function wordStartMatch(haystack, term) {
+      return createWordStartRegex(term).test(haystack);
+    }
+
+    function prefixMatch(haystack, term) {
+      return createPrefixRegex(term).test(haystack);
+    }
+
+    function getMode() {
+      const checked = Array.from(modeRadios).find(r => r.checked);
+      return checked ? checked.value : 'anywhere';
+    }
+
+    function matchesAllTerms(entry, terms, mode) {
+      const inCode = (fn, t) => fn(entry.code, t);
+      const inDesc = (fn, t) => fn(entry.desc, t);
+
+      const matcher = mode === 'prefix' ? prefixMatch : mode === 'anywhere_exact_start' ? wordStartMatch : containsMatch;
+
+      return terms.every(term => inCode(matcher, term) || inDesc(matcher, term));
+    }
+
+    function highlightByMode(text, terms, mode) {
+      if (terms.length === 0) return escapeHtml(text);
+
+      if (mode === 'prefix') {
+        const term = terms[0];
+        const rx = createPrefixRegex(term);
+        return escapeHtml(text).replace(new RegExp('^(' + escapeRegExp(term) + ')', 'i'), '<span class="highlight">$1</span>');
+      }
+
+      if (mode === 'anywhere_exact_start') {
+        let html = escapeHtml(text);
+        for (const term of terms) {
+          const rx = new RegExp('\\b(' + escapeRegExp(term) + ')', 'gi');
+          html = html.replace(rx, '<span class="highlight">$1</span>');
+        }
+        return html;
+      }
+
+      // anywhere
+      let html = escapeHtml(text);
+      for (const term of terms) {
+        const rx = new RegExp('(' + escapeRegExp(term) + ')', 'gi');
+        html = html.replace(rx, '<span class="highlight">$1</span>');
+      }
+      return html;
+    }
+
+    function renderResults() {
+      const raw = searchInput.value;
+      const terms = normalizeTerms(raw);
+      const mode = getMode();
+
+      const rows = cpvData.map(parseRow);
+      const filtered = terms.length === 0
+        ? rows.slice(0, 300)
+        : rows.filter(entry => matchesAllTerms(entry, terms, mode)).slice(0, 300);
+
+      resultList.innerHTML = '';
+      currentActiveIndex = -1;
+
+      if (filtered.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'not-found';
+        li.textContent = 'No results found';
+        resultList.appendChild(li);
+        return;
+      }
+
+      for (const entry of filtered) {
+        const li = document.createElement('li');
+        li.className = 'result-item';
+        li.tabIndex = 0;
+
+        const codeHtml = highlightByMode(entry.code, terms, mode);
+        const descHtml = highlightByMode(entry.desc, terms, mode);
+
+        li.innerHTML = `<span class="code">${codeHtml}</span><span class="desc">${descHtml}</span>`;
+
+        li.addEventListener('click', () => selectEntry(entry));
+        li.addEventListener('keydown', e => { if (e.key === 'Enter') selectEntry(entry); });
+
+        resultList.appendChild(li);
+      }
+    }
+
+    function selectEntry(entry) {
+      const value = `${entry.code}`;
+      const existing = selectedBox.value.trim();
+      if (!existing) {
+        selectedBox.value = value;
+      } else {
+        const parts = existing.split(',').map(s => s.trim()).filter(Boolean);
+        if (!parts.includes(value)) parts.push(value);
+        selectedBox.value = parts.join(', ');
+      }
+      selectedBox.focus();
+      selectedBox.setSelectionRange(selectedBox.value.length, selectedBox.value.length);
+    }
+
+    function copyToClipboard(text) {
+      if (!text) return;
+      navigator.clipboard?.writeText(text)
+        .catch(() => {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        });
+    }
+
+    function handleCopy() { copyToClipboard(selectedBox.value.trim()); }
+    function handleCut() {
+      copyToClipboard(selectedBox.value.trim());
+      selectedBox.value = '';
+    }
+
+    function moveActive(delta) {
+      const items = Array.from(resultList.querySelectorAll('li.result-item'));
+      if (items.length === 0) return;
+      currentActiveIndex = (currentActiveIndex + delta + items.length) % items.length;
+      items.forEach((el, idx) => el.classList.toggle('active', idx === currentActiveIndex));
+      items[currentActiveIndex].scrollIntoView({ block: 'nearest' });
+    }
+
+    function activateCurrent() {
+      const items = Array.from(resultList.querySelectorAll('li.result-item'));
+      if (items.length === 0 || currentActiveIndex < 0) return;
+      const rowEl = items[currentActiveIndex];
+      const codeText = rowEl.querySelector('.code')?.textContent || '';
+      const descText = rowEl.querySelector('.desc')?.textContent || '';
+      selectEntry({ code: codeText, desc: descText });
+    }
+
+    // Events
+    searchInput.addEventListener('input', renderResults);
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+      else if (e.key === 'Enter') { e.preventDefault(); activateCurrent(); }
+    });
+
+    modeRadios.forEach(r => r.addEventListener('change', renderResults));
+    copyBtn.addEventListener('click', handleCopy);
+    cutBtn.addEventListener('click', handleCut);
+
+    // Initial render
+    renderResults();
+  </script>
+</body>
+</html>
