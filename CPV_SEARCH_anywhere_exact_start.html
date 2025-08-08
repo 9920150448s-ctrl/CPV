@@ -1,349 +1,400 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>TOT CPV Code Search — anywhere | exact | start</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TOT CPV Code Search — with anywhere_exact_start</title>
   <style>
     :root {
-      --bg: #0f1218;
-      --panel: #141a23;
-      --muted: #a9b1bb;
-      --text: #e6edf3;
-      --accent: #3b82f6;
-      --accent-2: #22c55e;
-      --border: #253043;
-      --highlight-bg: #fde68a;
-      --highlight-text: #1f2937;
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #60a5fa;
+      --accent-2: #34d399;
       --danger: #ef4444;
+      --highlight-bg: #fde68a;
+      --highlight-text: #111827;
+      --border: #1f2937;
     }
+
     * { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 24px;
-      background: radial-gradient(1200px 600px at 20% -20%, #162033 0%, transparent 60%),
-                  radial-gradient(1200px 600px at 80% -20%, #1a2338 0%, transparent 60%),
-                  var(--bg);
+      background: linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
       color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      line-height: 1.5;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      line-height: 1.4;
     }
+
     h2 {
       margin: 0 0 16px;
-      font-size: 22px;
       font-weight: 700;
       letter-spacing: 0.2px;
     }
-    .panel {
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03);
-    }
-    .row { display: grid; gap: 12px; }
 
-    .mode-group {
-      display: inline-flex;
-      gap: 8px;
-      align-items: center;
+    .toolbar {
+      display: flex;
       flex-wrap: wrap;
-      margin-bottom: 8px;
+      align-items: center;
+      gap: 12px 16px;
+      margin-bottom: 14px;
     }
-    .mode-segment {
-      display: inline-flex;
-      border: 1px solid var(--border);
-      background: var(--panel);
-      border-radius: 999px;
-      overflow: hidden;
-    }
-    .mode-segment label {
+
+    .toggle-switch {
+      position: relative;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      cursor: pointer;
-      color: var(--muted);
+      gap: 10px;
       user-select: none;
-      transition: color 0.2s ease, background 0.2s ease;
-      border-right: 1px solid var(--border);
     }
-    .mode-segment label:last-child { border-right: 0; }
-    .mode-segment input { display: none; }
-    .mode-segment input:checked + span {
-      color: var(--text);
-      background: rgba(59,130,246,0.15);
+
+    .toggle-switch input { display: none; }
+
+    .slider {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      background: #374151;
+      border-radius: 999px;
+      transition: background 0.2s ease;
+      border: 1px solid var(--border);
+    }
+
+    .slider::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 22px;
+      height: 22px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .toggle-switch input:checked + .slider {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    }
+
+    .toggle-switch input:checked + .slider::after {
+      transform: translateX(22px);
+    }
+
+    .toggle-label {
+      font-size: 14px;
+      color: var(--muted);
     }
 
     #searchBox {
       width: 100%;
-      padding: 12px 14px;
-      font-size: 15px;
-      color: var(--text);
-      background: var(--panel);
-      border: 1px solid var(--border);
+      padding: 14px 16px;
       border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
       outline: none;
-      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+      box-shadow: inset 0 0 0 1px transparent;
+      transition: box-shadow 0.15s ease, border 0.15s ease;
     }
     #searchBox::placeholder { color: #6b7280; }
-    #searchBox:focus { border-color: #35517a; box-shadow: 0 0 0 4px rgba(59,130,246,0.15); }
+    #searchBox:focus {
+      border-color: #394458;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 16px;
+      align-items: start;
+      margin-top: 14px;
+    }
 
     #resultList {
       list-style: none;
-      margin: 12px 0 0;
+      margin: 0;
       padding: 0;
-      max-height: 48vh;
-      overflow: auto;
       border: 1px solid var(--border);
       border-radius: 10px;
-      background: var(--panel);
+      background: rgba(17, 24, 39, 0.65);
+      backdrop-filter: blur(4px);
+      max-height: 60vh;
+      overflow: auto;
     }
+
     #resultList li {
       padding: 10px 12px;
       border-bottom: 1px solid var(--border);
       cursor: pointer;
-      display: flex;
-      gap: 8px;
-      align-items: center;
     }
     #resultList li:last-child { border-bottom: none; }
-    #resultList li:hover, #resultList li.active { background: rgba(59,130,246,0.10); }
-    .code { font-weight: 700; color: var(--text); min-width: 110px; }
-    .desc { color: var(--muted); }
+    #resultList li:hover, #resultList li.active { background: rgba(55, 65, 81, 0.35); }
 
     #selectedBox {
       width: 100%;
-      min-height: 110px;
-      margin-top: 12px;
-      padding: 12px;
-      font-size: 14px;
-      color: var(--text);
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
+      min-height: 180px;
       resize: vertical;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(17, 24, 39, 0.65);
+      color: var(--text);
     }
 
     .button-row {
-      margin-top: 10px;
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
     }
-    .btn {
-      appearance: none;
+
+    .button-row button {
+      padding: 10px 14px;
+      background: var(--panel);
       border: 1px solid var(--border);
-      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
       color: var(--text);
-      padding: 8px 12px;
-      border-radius: 10px;
+      border-radius: 8px;
       cursor: pointer;
-      font-weight: 600;
-      transition: transform 0.02s ease, border-color 0.2s ease, background 0.2s ease;
+      transition: transform 0.05s ease, background 0.15s ease;
     }
-    .btn:hover { border-color: #35517a; background: rgba(59,130,246,0.10); }
-    .btn:active { transform: translateY(1px); }
-    .btn-danger:hover { border-color: rgba(239,68,68,0.6); background: rgba(239,68,68,0.12); }
+    .button-row button:hover { background: #1b2433; }
+    .button-row button:active { transform: translateY(1px); }
+    .button-row button.danger { border-color: #3a1b1b; color: #fecaca; background: #2b1111; }
 
-    .highlight {
-      background: var(--highlight-bg);
-      color: var(--highlight-text);
-      padding: 0 2px;
-      border-radius: 3px;
+    .highlight { background: var(--highlight-bg); color: var(--highlight-text); padding: 0 2px; border-radius: 3px; }
+    .not-found { color: #fca5a5; padding: 10px 12px; }
+
+    @media (max-width: 980px) {
+      .two-col { grid-template-columns: 1fr; }
     }
-
-    .small { color: #7f8a98; font-size: 12px; }
   </style>
 </head>
 <body>
-  <div class="row">
-    <h2>TOT CPV Code Search</h2>
+  <h2>TOT CPV Code Search</h2>
 
-    <div class="mode-group">
-      <div class="mode-segment" role="radiogroup" aria-label="Search mode">
-        <label>
-          <input type="radio" name="searchMode" value="anywhere" checked>
-          <span>Anywhere</span>
-        </label>
-        <label>
-          <input type="radio" name="searchMode" value="start">
-          <span>Anywhere exact start</span>
-        </label>
-        <label>
-          <input type="radio" name="searchMode" value="exact">
-          <span>Exact</span>
-        </label>
+  <div class="toolbar">
+    <label class="toggle-switch" title="Prefix Search (string start)">
+      <input type="checkbox" id="prefixModeToggle" />
+      <span class="slider"></span>
+      <span class="toggle-label">Prefix Search Mode</span>
+    </label>
+
+    <label class="toggle-switch" title="Anywhere Exact Start (match at word boundary)">
+      <input type="checkbox" id="anywhereStartToggle" />
+      <span class="slider"></span>
+      <span class="toggle-label">Anywhere Exact Start</span>
+    </label>
+  </div>
+
+  <input
+    type="text"
+    id="searchBox"
+    placeholder="Enter CPV code, keyword, or prefixes separated by commas..."
+    autocomplete="off"
+  />
+
+  <div class="two-col">
+    <ul id="resultList"></ul>
+
+    <div>
+      <textarea id="selectedBox" placeholder="Selected CPV codes will appear here, separated by commas..."></textarea>
+      <div class="button-row">
+        <button class="danger" onclick="cutSelected()">Cut Selected</button>
+        <button onclick="copySelected()">Copy Selected</button>
       </div>
-      <span class="small">Separate multiple terms with commas</span>
-    </div>
-
-    <input id="searchBox" type="text" placeholder="Enter CPV code or keywords (comma-separated)" autocomplete="off" />
-
-    <ul id="resultList" class="panel"></ul>
-
-    <textarea id="selectedBox" class="panel" placeholder="Selected CPV codes will appear here, separated by commas..."></textarea>
-
-    <div class="button-row">
-      <button class="btn" id="copyBtn" type="button">Copy Selected</button>
-      <button class="btn btn-danger" id="cutBtn" type="button">Cut Selected</button>
     </div>
   </div>
 
   <script>
-    // Minimal sample data so the page works immediately. Replace with your full dataset.
+    // NOTE: Replace this sample with the full cpvData you provided previously
     const cpvData = [
       "03000000\tAgricultural, farming, fishing, forestry and related products",
-      "30200000\tComputer equipment and supplies",
-      "30230000\tComputer-related equipment",
+      "03100000\tCrops, products of market gardening and horticulture",
+      "03200000\tCereals, potatoes, vegetables, fruits and nuts",
+      "03300000\tFarming and animal products",
+      "03400000\tForestry and logging products",
+      "60100000\tRoad transport services",
+      "72000000\tIT services: consulting, software development, Internet and support",
       "72200000\tSoftware programming and consultancy services",
+      "72224000\tProject management consultancy services",
+      "73000000\tResearch and development services and related consultancy services",
+      "80000000\tEducation and training services",
       "85000000\tHealth and social work services",
-      "90500000\tRefuse and waste related services",
+      "85300000\tSocial work and related services",
+      "98000000\tOther community, social and personal services",
+      "98513100\tAgency staff services for households",
+      "98513200\tClerical staff services for households",
+      "98513300\tTemporary staff for households",
+      "98513310\tHome-help services",
       "98514000\tDomestic services",
-      "98910000\tServices specific to international organisations and bodies"
+      "98900000\tServices provided by extra-territorial organisations and bodies",
+      "98910000\tServices specific to international organisations and bodies",
     ];
-
-    const parsedData = cpvData
-      .map((row) => {
-        const [code, ...descParts] = row.split("\t");
-        const description = descParts.join(" ").trim();
-        return { code: code?.trim() || "", description: description || "" };
-      })
-      .filter(item => item.code && item.description);
 
     const searchBox = document.getElementById('searchBox');
     const resultList = document.getElementById('resultList');
     const selectedBox = document.getElementById('selectedBox');
-    const copyBtn = document.getElementById('copyBtn');
-    const cutBtn = document.getElementById('cutBtn');
 
-    let currentFocus = -1;
+    const prefixModeToggle = document.getElementById('prefixModeToggle');
+    const anywhereStartToggle = document.getElementById('anywhereStartToggle');
 
-    function getSearchMode() {
-      const checked = document.querySelector('input[name="searchMode"]:checked');
-      return checked ? checked.value : 'anywhere';
+    // Ensure toggles are mutually exclusive
+    function setExclusiveToggle(changed) {
+      if (changed === 'prefix' && prefixModeToggle.checked) {
+        anywhereStartToggle.checked = false;
+      } else if (changed === 'anywhere' && anywhereStartToggle.checked) {
+        prefixModeToggle.checked = false;
+      }
+      updateResults();
     }
+
+    prefixModeToggle.addEventListener('change', () => setExclusiveToggle('prefix'));
+    anywhereStartToggle.addEventListener('change', () => setExclusiveToggle('anywhere'));
+
+    let currentFocusIndex = -1;
 
     function escapeHtml(text) {
       return text
-        .replaceAll(/&/g, '&amp;')
-        .replaceAll(/</g, '&lt;')
-        .replaceAll(/>/g, '&gt;');
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
-    function escapeRegExp(text) {
+    function escapeRegex(text) {
       return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    function splitTerms(input) {
-      return input
-        .split(',')
-        .map(t => t.trim())
-        .filter(Boolean)
-        .map(t => t.toLowerCase());
+    function parseRow(row) {
+      const [code, ...rest] = row.split(/\s+/, 2);
+      // If the first split by whitespace did not yield full description (because code may include only first token),
+      // re-split by tab first, then fallback.
+      const tabParts = row.split('\t');
+      if (tabParts.length >= 2) return { code: tabParts[0], desc: tabParts.slice(1).join(' ').trim() };
+      return { code: code || row, desc: rest.join(' ') };
     }
 
-    function textToWords(textLower) {
-      return textLower.split(/[^a-z0-9]+/i).filter(Boolean);
-    }
-
-    function matchesTermAnyWhere(codeLower, descLower, term) {
-      return codeLower.includes(term) || descLower.includes(term);
-    }
-
-    function matchesTermStart(codeLower, descLower, term) {
-      if (codeLower.startsWith(term)) return true;
-      const words = textToWords(descLower);
-      return words.some(w => w.startsWith(term));
-    }
-
-    function matchesTermExact(codeLower, descLower, term) {
-      if (codeLower === term) return true;
-      if (term.includes(' ')) {
-        // Exact phrase as a whole (word boundary on both ends)
-        const re = new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i');
-        return re.test(descLower);
-      }
-      const words = textToWords(descLower);
-      return words.includes(term);
-    }
-
-    function itemMatches({ code, description }, terms, mode) {
+    function matchesTerms(rowText, terms) {
       if (terms.length === 0) return false;
+
+      const rowLower = rowText.toLowerCase();
+      const { code, desc } = parseRow(rowText);
       const codeLower = code.toLowerCase();
-      const descLower = description.toLowerCase();
+      const descLower = desc.toLowerCase();
 
+      const prefixMode = prefixModeToggle.checked;
+      const anywhereStartMode = anywhereStartToggle.checked;
+
+      // Every term must match
       return terms.every(term => {
-        if (mode === 'start') return matchesTermStart(codeLower, descLower, term);
-        if (mode === 'exact') return matchesTermExact(codeLower, descLower, term);
-        return matchesTermAnyWhere(codeLower, descLower, term); // anywhere
+        if (!term) return true;
+        if (prefixMode) {
+          // Match at start of the whole string (code or description)
+          return codeLower.startsWith(term) || descLower.startsWith(term);
+        } else if (anywhereStartMode) {
+          // Match at start of any word (word boundary) in code or desc
+          const pattern = new RegExp('\\b' + escapeRegex(term), 'i');
+          return pattern.test(code) || pattern.test(desc);
+        } else {
+          // Default: substring match anywhere
+          return codeLower.includes(term) || descLower.includes(term);
+        }
       });
     }
 
-    function highlightText(rawText, terms, mode) {
-      if (!terms.length) return escapeHtml(rawText);
-      let safe = escapeHtml(rawText);
+    function highlightText(rowText, terms) {
+      if (terms.length === 0) return escapeHtml(rowText);
 
-      // Build regexes per term based on mode
-      const regexes = terms.map(term => {
-        if (mode === 'start') return new RegExp(`\\b${escapeRegExp(term)}`, 'gi');
-        if (mode === 'exact') return new RegExp(`\\b${escapeRegExp(term)}\\b`, 'gi');
-        return new RegExp(`${escapeRegExp(term)}`, 'gi'); // anywhere
-      });
+      const { code, desc } = parseRow(rowText);
+      const prefixMode = prefixModeToggle.checked;
+      const anywhereStartMode = anywhereStartToggle.checked;
 
-      // Apply each regex sequentially; protect already wrapped segments
-      regexes.forEach(re => {
-        safe = safe.replace(re, (m) => `<span class="highlight">${m}</span>`);
-      });
-      return safe;
+      function highlightSegment(text) {
+        let html = escapeHtml(text);
+        // Apply each term highlighting; avoid double-wrapping by replacing on the original string progressively
+        terms.forEach(term => {
+          if (!term) return;
+          let regex;
+          if (prefixMode) {
+            regex = new RegExp('^(' + escapeRegex(term) + ')', 'i');
+          } else if (anywhereStartMode) {
+            regex = new RegExp('\\b(' + escapeRegex(term) + ')', 'gi');
+          } else {
+            regex = new RegExp('(' + escapeRegex(term) + ')', 'gi');
+          }
+          html = html.replace(regex, '<span class="highlight">$1</span>');
+        });
+        return html;
+      }
+
+      return highlightSegment(code) + '\t' + highlightSegment(desc);
     }
 
-    function renderResults(items, terms, mode) {
+    function renderResults(matches, terms) {
       resultList.innerHTML = '';
-      currentFocus = -1;
+      currentFocusIndex = -1;
 
-      if (!terms.length) return;
+      if (matches.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'not-found';
+        li.textContent = 'No results found';
+        resultList.appendChild(li);
+        return;
+      }
 
       const fragment = document.createDocumentFragment();
-      items.slice(0, 500).forEach(item => {
+      matches.forEach(row => {
         const li = document.createElement('li');
-        li.innerHTML = `
-          <span class="code">${highlightText(item.code, terms, mode)}</span>
-          <span class="desc">${highlightText(item.description, terms, mode)}</span>
-        `;
-        li.addEventListener('click', () => addCPVToBox(item.code));
+        li.innerHTML = highlightText(row, terms);
+        li.addEventListener('click', () => selectCPV(row));
         fragment.appendChild(li);
       });
       resultList.appendChild(fragment);
     }
 
-    function updateResults() {
-      const raw = searchBox.value || '';
-      const terms = splitTerms(raw);
-      const mode = getSearchMode();
+    function normalizeTerms(input) {
+      return input
+        .split(',')
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+    }
 
-      if (terms.length === 0) {
+    function updateResults() {
+      const query = searchBox.value.trim();
+      const terms = normalizeTerms(query);
+      if (query === '') {
         resultList.innerHTML = '';
+        currentFocusIndex = -1;
         return;
       }
 
-      const matches = parsedData.filter(item => itemMatches(item, terms, mode));
-      renderResults(matches, terms, mode);
+      const matches = cpvData.filter(row => matchesTerms(row, terms)).slice(0, 250);
+      renderResults(matches, terms);
     }
 
     function addCPVToBox(code) {
-      const existing = selectedBox.value
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
-      if (!existing.includes(code)) existing.push(code);
-      selectedBox.value = existing.join(', ');
+      const existing = selectedBox.value.trim();
+      if (!existing) {
+        selectedBox.value = code;
+      } else {
+        // Avoid duplicate consecutive commas
+        selectedBox.value = existing.replace(/,\s*$/,'') + ', ' + code;
+      }
+    }
+
+    function selectCPV(row) {
+      const { code } = parseRow(row);
+      addCPVToBox(code);
     }
 
     function copyToClipboard(text) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         return navigator.clipboard.writeText(text);
       }
+      // Fallback
       const ta = document.createElement('textarea');
       ta.value = text;
       document.body.appendChild(ta);
@@ -364,38 +415,44 @@
       copyToClipboard(text).then(() => { selectedBox.value = ''; });
     }
 
-    // Keyboard navigation for results
-    function removeActive(items) { [...items].forEach(el => el.classList.remove('active')); }
-    function addActive(items) {
-      if (!items.length) return;
-      removeActive(items);
-      if (currentFocus >= items.length) currentFocus = 0;
-      if (currentFocus < 0) currentFocus = items.length - 1;
-      items[currentFocus].classList.add('active');
-      items[currentFocus].scrollIntoView({ block: 'nearest' });
-    }
-
     searchBox.addEventListener('input', updateResults);
-    document.querySelectorAll('input[name="searchMode"]').forEach(el => {
-      el.addEventListener('change', updateResults);
-    });
 
+    // Keyboard navigation in result list
     searchBox.addEventListener('keydown', (e) => {
-      const items = resultList.getElementsByTagName('li');
-      if (e.key === 'ArrowDown') { currentFocus++; addActive(items); e.preventDefault(); }
-      else if (e.key === 'ArrowUp') { currentFocus--; addActive(items); e.preventDefault(); }
-      else if (e.key === 'Enter') {
+      const items = Array.from(resultList.querySelectorAll('li'));
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (currentFocus > -1 && items[currentFocus]) {
-          const codeEl = items[currentFocus].querySelector('.code');
-          const code = codeEl ? codeEl.textContent.trim() : '';
-          if (code) addCPVToBox(code);
+        currentFocusIndex = (currentFocusIndex + 1) % items.length;
+        setActive(items, currentFocusIndex);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentFocusIndex = (currentFocusIndex - 1 + items.length) % items.length;
+        setActive(items, currentFocusIndex);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (currentFocusIndex >= 0 && currentFocusIndex < items.length) {
+          items[currentFocusIndex].click();
         }
       }
     });
 
-    copyBtn.addEventListener('click', copySelected);
-    cutBtn.addEventListener('click', cutSelected);
+    function setActive(items, idx) {
+      items.forEach(el => el.classList.remove('active'));
+      if (idx >= 0 && idx < items.length) items[idx].classList.add('active');
+      // Ensure visibility
+      const el = items[idx];
+      if (el) {
+        const listRect = resultList.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        if (elRect.top < listRect.top) {
+          resultList.scrollTop -= (listRect.top - elRect.top) + 8;
+        } else if (elRect.bottom > listRect.bottom) {
+          resultList.scrollTop += (elRect.bottom - listRect.bottom) + 8;
+        }
+      }
+    }
   </script>
 </body>
 </html>
